@@ -71,7 +71,7 @@ class EventReview(SQLModel, table=True):
 def init_database(app: FastAPI) -> None:
     """初始化数据库连接池并创建表结构"""
     # 获取并标准化路径
-    database_path = "C:\Machine Files\event_management.db"
+    database_path = r"C:\Machine Files\event_management.db"
     db_path = Path(database_path).absolute()
     database_path = str(db_path)
     db_dir = db_path.parent
