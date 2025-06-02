@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from database.lifetime import init_database, shutdown_database
+from web.api import activities
 app = FastAPI()
 templates = Jinja2Templates(directory="web/templates")
 
@@ -32,3 +33,5 @@ async def home_page(request: Request):
             "now": lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # 添加 now 函数
         }
     )
+
+app.include_router(activities.router)
