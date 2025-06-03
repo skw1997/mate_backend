@@ -39,6 +39,7 @@ class EventRating(SQLModel, table=True):
     status: str
     submitted_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
     activity_id: str = Field(foreign_key="event.activity_id")
+    rating: float
     rater_id: str
     comment: str
 
@@ -49,6 +50,7 @@ class PartnerRating(SQLModel, table=True):
     status: str
     submitted_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
     user_id: str
+    rater_id: str
     tags: List[str] = Field(sa_column=Column(JSON))
     comment: str
 
