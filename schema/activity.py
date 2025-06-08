@@ -13,7 +13,6 @@ class ActivityInputData(BaseModel):
     budget: Optional[str] = None
     duration: Optional[str] = None
     additional_context: Optional[str] = None
-    status: Optional[int] = None  # 状态码，0-决定中，1-进行中，2-已完成，3-已取消
 
 class ActivityCreateRequest(BaseModel):
     user_id: str
@@ -107,6 +106,7 @@ class ActivityUpdateRequest(BaseModel):
     start_time: Optional[str] = None
     duration: Optional[float] = None
     requirements: Optional[ActivityUpdateRequirements] = None
+    status: Optional[str] = None  # e.g.,"created","pending", "approved", "rejected","cancelled","finished"
 
 class ActivityUpdateResponse(BaseModel):
     activity_id: str

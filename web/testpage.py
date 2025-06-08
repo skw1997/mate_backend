@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from database.lifetime import init_database, shutdown_database
-from web.api import activities
+from web.api import activities, activities_admin
 app = FastAPI()
 templates = Jinja2Templates(directory="web/templates")
 
@@ -18,7 +18,6 @@ async def init_app():
     app.state.welcome_message = "欢迎访问 FastAPI 网页！"
     init_database(app)  # 初始化数据库连接
     print("✅ 数据库连接已初始化")
-
     print("✅ 应用启动完成，全局变量已初始化")
 
 # 网页路由
@@ -34,4 +33,5 @@ async def home_page(request: Request):
         }
     )
 
+app.include_router(activities_admin.router)
 app.include_router(activities.router)
