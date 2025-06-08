@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from database.lifetime import init_database, shutdown_database
-from web.api import activities, activities_admin
+from web.api import activities, matching
 app = FastAPI()
 templates = Jinja2Templates(directory="web/templates")
 
@@ -33,5 +33,5 @@ async def home_page(request: Request):
         }
     )
 
-app.include_router(activities_admin.router)
+app.include_router(matching.router)
 app.include_router(activities.router)

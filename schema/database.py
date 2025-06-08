@@ -4,72 +4,31 @@ from datetime import datetime
 from sqlalchemy import Column, JSON, DateTime, Float, Integer, String, select
 from typing import List, Optional, Dict
 
-class Event(SQLModel, table=True):
-    __tablename__ = "event"
-    
-    activity_id: str = Field(primary_key=True)
-    owner_id: str
-    participants_id: List[str] = Field(sa_column=Column(JSON))
+class ActivityMatch(SQLModel, table=True):
+    __tablename__ = "activity_match"
+
+    match_id: str = Field(primary_key=True)
+    activity_id: str = Field(foreign_key="event.activity_id")
     status: str
-    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
+    matched_candidates: List[str] = Field(sa_column=Column(JSON))
+    pending: List[str] = Field(sa_column=Column(JSON))
+    accepted: List[str] = Field(sa_column=Column(JSON))
+    rejected: List[str] = Field(sa_column=Column(JSON))
     updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
-    rating: Optional[float] = Field(sa_column=Column(Float))
-    rating_id: List[str] = Field(sa_column=Column(JSON))
 
-class EventContent(SQLModel, table=True):
-    __tablename__ = "event_content"
-    
+class MatchRecord(SQLModel, table=True):
+    __tablename__ = "match_record"
+
     id: Optional[int] = Field(default=None, primary_key=True)
-    activity_id: str = Field(foreign_key="event.activity_id")
-    title: str
-    description: str
-    start_time: datetime = Field(sa_column=Column(DateTime(timezone=True)))
-    duration: Optional[float] = Field(sa_column=Column(Float))
-    theme: str
-    location: str
-    budget: int
-    group_size: int
-    recommended_equipment: List[str] = Field(sa_column=Column(JSON))
-    activity_tags: List[str] = Field(sa_column=Column(JSON))
+    match_id: str = Field(foreign_key="activity_match.match_id")
+    action: str
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
 
-class EventRating(SQLModel, table=True):
-    __tablename__ = "event_rating"
-    
-    rating_id: str = Field(primary_key=True)
-    status: str
-    submitted_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
-    activity_id: str = Field(foreign_key="event.activity_id")
+class MatchFeedbackRecord(SQLModel, table=True):
+    __tablename__ = "match_fb_record"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    rater_id: str
+    match_id: str = Field(foreign_key="activity_match.match_id")
     rating: float
-    rater_id: str
-    comment: str
-
-class PartnerRating(SQLModel, table=True):
-    __tablename__ = "partner_rating"
-    
-    rating_id: str = Field(primary_key=True)
-    status: str
-    submitted_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
-    user_id: str
-    rater_id: str
-    tags: List[str] = Field(sa_column=Column(JSON))
-    comment: str
-
-class EventReview(SQLModel, table=True):
-    __tablename__ = "event_review"
-    
-    review_id: str = Field(primary_key=True)
-    status: str
-    submitted_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
-    activity_id: str = Field(foreign_key="event.activity_id")
-    reviewer_id: str
-    comment: str
-
-class AdminActivityAction(SQLModel, table=True):
-    __tablename__ = "admin_activity_action"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    activity_id: str = Field(foreign_key="event.activity_id")
-    reviewer_id: str
-    decision: str  # "approve" or "reject"
-    comment: str
-    operated_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))

@@ -13,7 +13,7 @@ from schema.database import Event, EventContent, EventRating, PartnerRating, Eve
 def init_database(app: FastAPI) -> None:
     """初始化数据库连接池并创建表结构"""
     # 获取并标准化路径
-    database_path = r"C:\Machine Files\event_management.db"
+    database_path = r"C:\Machine Files\matching_management.db"
     db_path = Path(database_path).absolute()
     database_path = str(db_path)
     db_dir = db_path.parent
@@ -99,14 +99,14 @@ def get_session(request: Request) -> Session:
     
     return Session(engine)
 
-# 在 __main__ 部分添加测试代码
 if __name__ == "__main__":
     from sqlmodel import select  # 关键修复
     import asyncio 
     from fastapi import FastAPI, Request
     from datetime import datetime, UTC, timedelta 
     import uuid
-    
+    from schema.database import ActivityMatch, MatchRecord, MatchFeedbackRecord
+
     app = FastAPI()
     init_database(app)  # 初始化数据库
     async def main():
@@ -114,136 +114,64 @@ if __name__ == "__main__":
         request = Request(scope={"type": "http", "app": app})
         session = get_session(request)
 
-        # 测试1：插入完整活动数据流
+        # ...原有测试...
+
+        # 测试6：插入和查询 ActivityMatch/MatchRecord/MatchFeedbackRecord
         try:
-            # 创建主活动记录
+            match_id = str(uuid.uuid4())
             activity_id = str(uuid.uuid4())
-            event = Event(
+            now = datetime.utcnow()
+
+            # 插入 ActivityMatch
+            match = ActivityMatch(
+                match_id=match_id,
                 activity_id=activity_id,
-                owner_id="user_001",
-                participants_id=["user_002", "user_003"],
-                status="active",
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                status="pending",
+                matched_candidates=["user_01", "user_02"],
+                pending=["user_01"],
+                accepted=[],
+                rejected=[],
+                updated_at=now
             )
-            session.add(event)
-            
-            # 创建活动内容
-            event_content = EventContent(
-                activity_id=activity_id,
-                title="周末登山活动",
-                description="攀登西山观日出",
-                start_time=datetime.utcnow() + timedelta(days=3),
-                duration=4.5,
-                theme="户外运动",
-                location="西山森林公园",
-                budget=500,
-                group_size=15,
-                recommended_equipment=["登山杖", "防晒霜"],
-                activity_tags=["登山", "户外", "健身"]
-            )
-            session.add(event_content)
-            
-            # 创建活动评分
-            rating_id = str(uuid.uuid4())
-            event_rating = EventRating(
-                rating_id=rating_id,
-                status="submitted",
-                submitted_at=datetime.utcnow(),
-                activity_id=activity_id,
-                rater_id="user_002",
-                comment="组织有序，体验很棒！"
-            )
-            session.add(event_rating)
-            
-            # 更新主活动的评分信息
-            event.rating = 4.8
-            event.rating_id = [rating_id]
-            
+            session.add(match)
             session.commit()
-            logger.success("测试1：活动数据流插入成功")
+
+            # 插入 MatchRecord
+            record = MatchRecord(
+                match_id=match_id,
+                action="created",
+                updated_at=now
+            )
+            session.add(record)
+            session.commit()
+
+            # 插入 MatchFeedbackRecord
+            fb = MatchFeedbackRecord(
+                rater_id="user_01",
+                match_id=match_id,
+                rating=4.5,
+                updated_at=now
+            )
+            session.add(fb)
+            session.commit()
+
+            # 查询验证
+            db_match = session.get(ActivityMatch, match_id)
+            assert db_match is not None, "ActivityMatch 未找到"
+            logger.info(f"ActivityMatch: {db_match.match_id}, 状态: {db_match.status}")
+
+            db_record = session.exec(select(MatchRecord).where(MatchRecord.match_id == match_id)).first()
+            assert db_record is not None, "MatchRecord 未找到"
+            logger.info(f"MatchRecord: {db_record.action}")
+
+            db_fb = session.exec(select(MatchFeedbackRecord).where(MatchFeedbackRecord.match_id == match_id)).first()
+            assert db_fb is not None, "MatchFeedbackRecord 未找到"
+            logger.info(f"MatchFeedbackRecord: {db_fb.rating}")
+
+            logger.success("测试6：匹配相关表插入和查询成功")
         except Exception as e:
             session.rollback()
-            logger.error(f"测试1失败: {str(e)}")
-
-        # 测试2：查询验证插入的数据
-        try:
-            # 验证主活动记录
-            db_event = session.get(Event, activity_id)
-            assert db_event is not None, "主活动记录未找到"
-            logger.info(f"查询到活动: {db_event.activity_id} 状态: {db_event.status}")
-            
-            # 验证关联内容
-            content = session.exec(
-                select(EventContent).where(EventContent.activity_id == activity_id)
-            ).first()
-            assert content.title == "周末登山活动", "活动标题不匹配"
-            logger.info(f"活动内容: {content.title} 地点: {content.location}")
-            
-            # 验证评分
-            rating = session.get(EventRating, rating_id)
-            assert rating.comment == "组织有序，体验很棒！", "评分内容不匹配"
-            logger.info(f"活动评分: {rating.comment}")
-            
-            logger.success("测试2：数据查询验证通过")
-        except Exception as e:
-            logger.error(f"测试2失败: {str(e)}")
-
-        # 测试3：插入伙伴评分
-        try:
-            partner_rating = PartnerRating(
-                rating_id=str(uuid.uuid4()),
-                status="approved",
-                submitted_at=datetime.utcnow(),
-                user_id="user_005",
-                tags=["守时", "友好"],
-                comment="非常可靠的登山伙伴"
-            )
-            session.add(partner_rating)
-            session.commit()
-            logger.success("测试3：伙伴评分插入成功")
-        except Exception as e:
-            session.rollback()
-            logger.error(f"测试3失败: {str(e)}")
-
-        # 测试4：JSON字段查询
-        try:
-            # 查询包含特定装备的活动
-            results = session.exec(
-                select(EventContent).where(
-                    EventContent.recommended_equipment.contains(["登山杖"])
-                )
-            ).all()
-            
-            logger.info(f"找到 {len(results)} 个需要登山杖的活动")
-            for r in results:
-                logger.info(f"活动: {r.title} 装备: {r.recommended_equipment}")
-            
-            logger.success("测试4：JSON字段查询通过")
-        except Exception as e:
-            logger.error(f"测试4失败: {str(e)}")
-
-        # 测试5：关联表更新操作
-        try:
-            # 更新活动状态
-            db_event.status = "completed"
-            db_event.updated_at = datetime.utcnow()
-            
-            # 添加活动回顾
-            review = EventReview(
-                review_id=str(uuid.uuid4()),
-                status="published",
-                submitted_at=datetime.utcnow(),
-                activity_id=activity_id,
-                reviewer_id="user_001",
-                comment="本次活动圆满成功，感谢大家参与！"
-            )
-            session.add(review)
-            session.commit()
-            logger.success("测试5：关联表更新操作成功")
-        except Exception as e:
-            session.rollback()
-            logger.error(f"测试5失败: {str(e)}")
+            logger.error(f"测试6失败: {str(e)}")
 
         # 关闭数据库连接
         await shutdown_database(app)
