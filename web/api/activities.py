@@ -7,7 +7,7 @@ from schema.activity import ActivityInputData, ActivityCreateRequest, GeneratedA
 from schema.database import EventRating
 from typing import List
 from fastapi import Query
-
+from dateutil import parser
 import random
 
 @router.post("/api/activities/create", response_model=ActivityCreateResponse)
@@ -33,8 +33,8 @@ async def create_activity(request: Request, body: ActivityCreateRequest):
             activity_id=activity_id,
             owner_id=body.user_id,
             participants_id=[body.user_id],
-            status=input_data.status or "决定中",
             created_at=now,
+            status="created",  # 初始状态
             updated_at=now,
             rating=None,
             rating_id=[]
@@ -76,9 +76,7 @@ async def create_activity(request: Request, body: ActivityCreateRequest):
 
 @router.post("/api/activities/manual-create", response_model=ManualCreateResponse)
 async def manual_create_activity(request: Request, body: ManualCreateRequest):
-    import uuid
-    from datetime import datetime
-    from dateutil import parser
+
 
     activity_id = f"a{uuid.uuid4()}"
     now = datetime.now()
@@ -95,7 +93,7 @@ async def manual_create_activity(request: Request, body: ManualCreateRequest):
             activity_id=activity_id,
             owner_id=body.user_id,
             participants_id=[body.user_id],
-            status="决定中",
+            status="created",  # 初始状态
             created_at=now,
             updated_at=now,
             rating=None,
@@ -208,7 +206,6 @@ async def update_activity(
         if body.budget is not None:
             event_content.budget = body.budget
         if body.start_time:
-            from dateutil import parser
             event_content.start_time = parser.parse(body.start_time)
         if body.duration is not None:
             event_content.duration = body.duration
@@ -217,7 +214,11 @@ async def update_activity(
                 event_content.group_size = body.requirements.group_size
             if body.requirements.activity_tags is not None:
                 event_content.activity_tags = body.requirements.activity_tags
-
+        if body.status:
+            if body.status not in ["created", "pending"]:
+                raise HTTPException(status_code=400, detail="无效的状态")
+            event.status = body.status # 更新状态
+                
         # 更新时间
         now = datetime.now()
         event.updated_at = now
@@ -318,8 +319,14 @@ async def get_user_activity_history(
 ):
     session = get_session(request)
 
+    # 只保留非 cancelled 和 rejected 的活动
+    valid_status = ["created", "pending", "approved", "finished"]
+
     # 查询用户创建的活动
-    created_events = session.query(Event).filter_by(owner_id=user_id).all()
+    created_events = session.query(Event).filter(
+        Event.owner_id == user_id,
+        Event.status.in_(valid_status)
+    ).all()
     created_history = [
         ActivityHistoryItem(
             activity_id=e.activity_id,
@@ -330,7 +337,11 @@ async def get_user_activity_history(
     ]
 
     # 查询用户参与的活动（不包括自己创建的）
-    joined_events = session.query(Event).filter(Event.participants_id.contains([user_id]), Event.owner_id != user_id).all()
+    joined_events = session.query(Event).filter(
+        Event.participants_id.contains([user_id]),
+        Event.owner_id != user_id,
+        Event.status.in_(valid_status)
+    ).all()
     joined_history = [
         ActivityHistoryItem(
             activity_id=e.activity_id,

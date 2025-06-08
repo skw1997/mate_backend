@@ -64,3 +64,12 @@ class EventReview(SQLModel, table=True):
     reviewer_id: str
     comment: str
 
+class AdminActivityAction(SQLModel, table=True):
+    __tablename__ = "admin_activity_action"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    activity_id: str = Field(foreign_key="event.activity_id")
+    reviewer_id: str
+    decision: str  # "approve" or "reject"
+    comment: str
+    operated_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
