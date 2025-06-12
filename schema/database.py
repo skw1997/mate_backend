@@ -8,7 +8,7 @@ class ActivityMatch(SQLModel, table=True):
     __tablename__ = "activity_match"
 
     match_id: str = Field(primary_key=True)
-    activity_id: str =  Field(sa_column=Column(JSON))
+    activity_id: str = Field(sa_column=Column(String, index=True))
     status: str
     matched_candidates: List[str] = Field(sa_column=Column(JSON))
     pending: List[str] = Field(sa_column=Column(JSON))

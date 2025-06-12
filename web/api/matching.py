@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Body, HTTPException, Request
 from datetime import datetime
 import uuid
+from sqlalchemy.orm.attributes import flag_modified
 from database.lifetime import get_session
 router = APIRouter()
 from schema.matching import *
@@ -22,8 +23,8 @@ async def match_candidates(
         MatchedCandidate(user_id="u54321", similarity_score=0.87)
     ]
     user_pending = [c.user_id for c in matched_candidates]
-    user_accepted = [c.user_id for c in matched_candidates]
-    user_rejected = [c.user_id for c in matched_candidates]
+    user_accepted = []
+    user_rejected = []
     now = datetime.utcnow()
     match_id = str(uuid.uuid4())
 
@@ -60,7 +61,7 @@ async def get_match_record(
     request: Request = None
 ):
     session = get_session(request)
-    match = session.query(ActivityMatch).filter_by(activity_id=activity_id).order_by(ActivityMatch.updated_at.desc()).first()
+    match = session.query(ActivityMatch).filter(activity_id == activity_id).order_by(ActivityMatch.updated_at.desc()).first()
     if not match:
         raise HTTPException(status_code=404, detail="未找到匹配记录")
 
@@ -115,7 +116,7 @@ async def get_match_status(
     request: Request = None
 ):
     session = get_session(request)
-    match = session.query(ActivityMatch).filter_by(activity_id=activity_id).order_by(ActivityMatch.updated_at.desc()).first()
+    match = session.query(ActivityMatch).filter(activity_id=activity_id).order_by(ActivityMatch.updated_at.desc()).first()
     if not match:
         raise HTTPException(status_code=404, detail="未找到匹配记录")
 
@@ -138,7 +139,9 @@ async def update_match_status(
     request: Request = None
 ):
     session = get_session(request)
-    match = session.query(ActivityMatch).filter_by(activity_id=body.activity_id).order_by(ActivityMatch.updated_at.desc()).first()
+    print(body.activity_id)
+    match = session.query(ActivityMatch).filter(ActivityMatch.activity_id == body.activity_id).order_by(ActivityMatch.updated_at.desc()).first()
+
     if not match:
         raise HTTPException(status_code=404, detail="未找到匹配记录")
     # 更新状态
@@ -146,6 +149,7 @@ async def update_match_status(
         raise HTTPException(status_code=400, detail="无效的操作类型")
     match.status = body.action
     match.updated_at = datetime.utcnow()
+    session.add(match)
     session.commit()
     return MatchUpdateResponse(
         activity_id=body.activity_id,
@@ -164,20 +168,26 @@ async def match_notification_action(
     if not match:
         raise HTTPException(status_code=404, detail="未找到匹配记录")
 
-    # 处理用户响应
     if body.response == "accept":
         if body.user_id in match.pending:
             match.pending.remove(body.user_id)
         if body.user_id not in match.accepted:
             match.accepted.append(body.user_id)
+        match.pending = list(match.pending)
+        match.accepted = list(match.accepted)
+        flag_modified(match, "pending")
+        flag_modified(match, "accepted")
     elif body.response == "reject":
         if body.user_id in match.pending:
             match.pending.remove(body.user_id)
         if body.user_id not in match.rejected:
             match.rejected.append(body.user_id)
+        match.pending = list(match.pending)
+        match.rejected = list(match.rejected)
+        flag_modified(match, "pending")
+        flag_modified(match, "rejected")
     else:
         raise HTTPException(status_code=400, detail="无效的响应类型")
-
     match.updated_at = datetime.utcnow()
     session.commit()
 
