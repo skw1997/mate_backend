@@ -1,14 +1,11 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Body, HTTPException, Request
 from datetime import datetime
 import uuid
-from database.lifetime import get_session, Event
+from database.lifetime import get_session
 router = APIRouter()
-from schema.matching import MatchCandidatesRequest, MatchCandidatesResponse, MatchedCandidate, MatchRecordQueryRequest, MatchRecordQueryResponse, MatchFeedbackRequest, MatchFeedbackResponse
-from schema.database import Event, ActivityMatch
+from schema.matching import *
+from schema.database import ActivityMatch, MatchFeedbackRecord
 from fastapi import Query
-
-
-from schema.matching import PendingActivitiesResponse, PendingActivityItem
 
 
 @router.post("/api/match/activities/{activity_id}/match-candidates", response_model=MatchCandidatesResponse)
@@ -34,7 +31,7 @@ async def match_candidates(
     match = ActivityMatch(
         match_id=match_id,
         activity_id=activity_id,
-        status="matching_completed",
+        status="matching",
         matched_candidates=user_pending,
         pending=user_pending,
         accepted=user_accepted,
@@ -108,3 +105,84 @@ async def submit_match_feedback(
         activity_id=activity_id,
         message="OK"
     )
+
+
+@router.get("/api/match/status", response_model=MatchStatusResponse)
+async def get_match_status(
+    activity_id: str = Query(...),
+    user_id: str = Query(...),
+    token: str = Query(...),
+    request: Request = None
+):
+    session = get_session(request)
+    match = session.query(ActivityMatch).filter_by(activity_id=activity_id).order_by(ActivityMatch.updated_at.desc()).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="未找到匹配记录")
+
+    # 这里假设 status 字段即为 matching_status
+    matching_status = match.status
+    current_candidates_count = len(match.matched_candidates) if match.matched_candidates else 0
+
+    return MatchStatusResponse(
+        activity_id=activity_id,
+        user_id=user_id,
+        matching_status=matching_status,
+        current_candidates_count=current_candidates_count
+    )
+
+
+
+@router.post("/api/match/update", response_model=MatchUpdateResponse)
+async def update_match_status(
+    body: MatchUpdateRequest = Body(...),
+    request: Request = None
+):
+    session = get_session(request)
+    match = session.query(ActivityMatch).filter_by(activity_id=body.activity_id).order_by(ActivityMatch.updated_at.desc()).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="未找到匹配记录")
+    # 更新状态
+    if body.action not in ["cancelled", "paused"]:
+        raise HTTPException(status_code=400, detail="无效的操作类型")
+    match.status = body.action
+    match.updated_at = datetime.utcnow()
+    session.commit()
+    return MatchUpdateResponse(
+        activity_id=body.activity_id,
+        status=body.action,
+        timestamp=match.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+    )
+
+
+@router.post("/api/match/notifications/action", response_model=MatchNotificationActionResponse)
+async def match_notification_action(
+    body: MatchNotificationActionRequest = Body(...),
+    request: Request = None
+):
+    session = get_session(request)
+    match = session.query(ActivityMatch).filter_by(match_id=body.match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="未找到匹配记录")
+
+    # 处理用户响应
+    if body.response == "accept":
+        if body.user_id in match.pending:
+            match.pending.remove(body.user_id)
+        if body.user_id not in match.accepted:
+            match.accepted.append(body.user_id)
+    elif body.response == "reject":
+        if body.user_id in match.pending:
+            match.pending.remove(body.user_id)
+        if body.user_id not in match.rejected:
+            match.rejected.append(body.user_id)
+    else:
+        raise HTTPException(status_code=400, detail="无效的响应类型")
+
+    match.updated_at = datetime.utcnow()
+    session.commit()
+
+    return MatchNotificationActionResponse(
+        match_id=body.match_id,
+        message="OK"
+    )
+

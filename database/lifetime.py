@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy import Column, JSON, DateTime, Float, Integer, String, select
 import sys
 from pathlib import Path
-from schema.database import Event, EventContent, EventRating, PartnerRating, EventReview
+from schema.database import ActivityMatch, MatchRecord, MatchFeedbackRecord 
 
 # 数据库生命周期管理
 def init_database(app: FastAPI) -> None:
