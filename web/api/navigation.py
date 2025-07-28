@@ -53,7 +53,7 @@ async def get_nearby_locations(
     request: Request = None
 ):  
     config_json = get_config()
-    url = "https://restapi.amap.com/v3/place/text"
+    url = "https://restapi.amap.com/v3/place/around"
     key = config_json.get("map_api_key", "your_api_key_here")
     params = {
         "location": f"{lng},{lat}",
@@ -68,3 +68,27 @@ async def get_nearby_locations(
 
     return data["regeocode"]["pois"]
 
+
+@router.get("GET /api/navigation/locations/recommend")
+async def get_nearby_locations(
+    lat: float = Query(..., description="用户纬度"),
+    lng: float = Query(..., description="用户经度"),
+    radius: int = Query(2000, description="搜索半径（米）"),
+    types: str = Query(None, description="种类（如餐饮、购物等）"),
+    request: Request = None
+):  
+    config_json = get_config()
+    url = "https://restapi.amap.com/v3/place/around"
+    key = config_json.get("map_api_key", "your_api_key_here")
+    params = {
+        "location": f"{lng},{lat}",
+        "key": key,
+        "radius": radius,
+        "types": types if types else None,
+        "extensions": "all"
+    }
+
+    response = requests.get(url, params=params)
+    data = response.json()
+
+    return data["regeocode"]["pois"]
