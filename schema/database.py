@@ -73,3 +73,11 @@ class AdminActivityAction(SQLModel, table=True):
     decision: str  # "approve" or "reject"
     comment: str
     operated_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
+
+
+class ActivityLocation(SQLModel, table=True):
+    __tablename__ = "activity_location"
+
+    activity_id: str = Field(primary_key=True, index=True)
+    participants_location: List[Dict[str, float]] = Field(sa_column=Column(JSON))  # [{"user_id": "u123", "lat": 39.9, "lng": 116.4}, ...]
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True)), default_factory=datetime.utcnow)

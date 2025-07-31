@@ -3,7 +3,8 @@ from datetime import datetime, timezone, timedelta
 import uuid
 from database.lifetime import get_session, Event, EventContent
 router = APIRouter()
-from schema.navigation import LocationItem
+from schema.navigation import LocationItem, UserLocationRequest, UserLocationResponse
+from schema.database import ActivityLocation
 from typing import List
 from fastapi import Query
 from dateutil import parser
@@ -92,3 +93,56 @@ async def get_nearby_locations(
     data = response.json()
 
     return data["regeocode"]["pois"]
+
+@router.post("/api/navigation/location/user", response_model=UserLocationResponse)
+async def update_user_location(
+    body: UserLocationRequest,
+    request: Request = None
+):
+    session = get_session(request)
+    activity_id = body.user_id  # 实际应传递 activity_id
+
+    record = session.get(ActivityLocation, activity_id)
+    now = datetime.utcnow()
+    user_found = False
+
+    if record:
+        # 查找 user_id 是否已存在
+        for item in record.participants_location:
+            if item["user_id"] == body.user_id:
+                item["lat"] = body.location["lat"]
+                item["lng"] = body.location["lng"]
+                user_found = True
+                break
+        # 如果未找到，检查 Event 表
+        if not user_found:
+            event = session.get(Event, activity_id)
+            if event and body.user_id in event.participants_id:
+                record.participants_location.append({
+                    "user_id": body.user_id,
+                    "lat": body.location["lat"],
+                    "lng": body.location["lng"]
+                })
+                user_found = True
+        record.updated_at = now
+    else:
+        # 新建记录
+        record = ActivityLocation(
+            activity_id=activity_id,
+            participants_location=[{
+                "user_id": body.user_id,
+                "lat": body.location["lat"],
+                "lng": body.location["lng"]
+            }],
+            updated_at=now
+        )
+        session.add(record)
+        user_found = True
+
+    session.commit()
+
+    return UserLocationResponse(
+        user_id=body.user_id,
+        status="location_updated" if user_found else "user_not_found",
+        updated_at=now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    )
