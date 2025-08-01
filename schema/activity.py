@@ -5,7 +5,7 @@ from schema.database import Event, EventContent
 from pydantic import BaseModel, Field
 
 
-#create activity
+# create activity
 class ActivityInputData(BaseModel):
     prompt: str
     theme: Optional[str] = None
@@ -14,17 +14,20 @@ class ActivityInputData(BaseModel):
     duration: Optional[str] = None
     additional_context: Optional[str] = None
 
+
 class ActivityCreateRequest(BaseModel):
     user_id: str
     token: str
     session_id: str
     input_data: ActivityInputData
 
+
 class GeneratedActivity(BaseModel):
     title: str
     description: str
     start_time: str
     recommended_equipment: List[str]
+
 
 class ActivityCreateResponse(BaseModel):
     activity_id: str
@@ -33,10 +36,11 @@ class ActivityCreateResponse(BaseModel):
     created_at: str
 
 
-#manual create activity
+# manual create activity
 class ManualCreateRequirements(BaseModel):
     group_size: int
     activity_tags: List[str]
+
 
 class ManualCreateRequest(BaseModel):
     user_id: str
@@ -49,15 +53,18 @@ class ManualCreateRequest(BaseModel):
     start_time: str  # ISO datetime string
     requirements: ManualCreateRequirements
 
+
 class ManualCreateResponse(BaseModel):
     activity_id: str
     status: str
     created_at: str
 
+
 class ActivityCardRequest(BaseModel):
     user_id: str
     token: str
     activity_id: str
+
 
 class ActivityCardResponse(BaseModel):
     activity_id: str
@@ -65,15 +72,18 @@ class ActivityCardResponse(BaseModel):
     location: str
     start_time: str
 
+
 class ActivityDetailRequest(BaseModel):
     user_id: str
     token: str
     activity_id: str
 
+
 class ActivityDetailRequirements(BaseModel):
     group_size: str
     activity_tags: List[str]
     recommended_equipment: List[str]
+
 
 class ActivityDetailResponse(BaseModel):
     activity_id: str
@@ -90,9 +100,11 @@ class ActivityDetailResponse(BaseModel):
     created_at: str
     last_updated: str
 
+
 class ActivityUpdateRequirements(BaseModel):
     group_size: int
     activity_tags: List[str]
+
 
 class ActivityUpdateRequest(BaseModel):
     user_id: str
@@ -106,13 +118,15 @@ class ActivityUpdateRequest(BaseModel):
     start_time: Optional[str] = None
     duration: Optional[float] = None
     requirements: Optional[ActivityUpdateRequirements] = None
-    status: Optional[str] = None  # e.g.,"created","pending", "approved", "rejected","cancelled","finished"
+    status: Optional[str] = (
+        None  # e.g.,"created","pending", "approved", "rejected","cancelled","finished"
+    )
+
 
 class ActivityUpdateResponse(BaseModel):
     activity_id: str
     feedback: str
     updated_at: str
-
 
 
 class ActivityFeedbackRequest(BaseModel):
@@ -121,6 +135,7 @@ class ActivityFeedbackRequest(BaseModel):
     activity_id: str
     rating: float
     comment: str
+
 
 class ActivityFeedbackResponse(BaseModel):
     activity_id: str
@@ -135,10 +150,10 @@ class FeedbackItem(BaseModel):
     comment: str
     submitted_at: str
 
+
 class FeedbackListResponse(BaseModel):
     activity_id: str
     feedbacks: List[FeedbackItem]
-
 
 
 class ActivityHistoryItem(BaseModel):
@@ -146,9 +161,11 @@ class ActivityHistoryItem(BaseModel):
     status: str
     timestamp: str
 
+
 class ActivityHistoryRequest(BaseModel):
     user_id: str
     token: str
+
 
 class ActivityHistoryResponse(BaseModel):
     user_id: str

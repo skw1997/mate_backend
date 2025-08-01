@@ -4,9 +4,10 @@ from datetime import datetime
 from sqlalchemy import Column, JSON, DateTime, Float, Integer, String, select
 from typing import List, Optional, Dict
 
+
 class Event(SQLModel, table=True):
     __tablename__ = "event"
-    
+
     activity_id: str = Field(primary_key=True)
     owner_id: str
     participants_id: List[str] = Field(sa_column=Column(JSON))
@@ -16,9 +17,10 @@ class Event(SQLModel, table=True):
     rating: Optional[float] = Field(sa_column=Column(Float))
     rating_id: List[str] = Field(sa_column=Column(JSON))
 
+
 class EventContent(SQLModel, table=True):
     __tablename__ = "event_content"
-    
+
     id: Optional[int] = Field(default=None, primary_key=True)
     activity_id: str = Field(foreign_key="event.activity_id")
     title: str
@@ -32,9 +34,10 @@ class EventContent(SQLModel, table=True):
     recommended_equipment: List[str] = Field(sa_column=Column(JSON))
     activity_tags: List[str] = Field(sa_column=Column(JSON))
 
+
 class EventRating(SQLModel, table=True):
     __tablename__ = "event_rating"
-    
+
     rating_id: str = Field(primary_key=True)
     status: str
     submitted_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
@@ -43,9 +46,10 @@ class EventRating(SQLModel, table=True):
     rater_id: str
     comment: str
 
+
 class PartnerRating(SQLModel, table=True):
     __tablename__ = "partner_rating"
-    
+
     rating_id: str = Field(primary_key=True)
     status: str
     submitted_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
@@ -54,15 +58,17 @@ class PartnerRating(SQLModel, table=True):
     tags: List[str] = Field(sa_column=Column(JSON))
     comment: str
 
+
 class EventReview(SQLModel, table=True):
     __tablename__ = "event_review"
-    
+
     review_id: str = Field(primary_key=True)
     status: str
     submitted_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
     activity_id: str = Field(foreign_key="event.activity_id")
     reviewer_id: str
     comment: str
+
 
 class AdminActivityAction(SQLModel, table=True):
     __tablename__ = "admin_activity_action"
@@ -79,5 +85,9 @@ class ActivityLocation(SQLModel, table=True):
     __tablename__ = "activity_location"
 
     activity_id: str = Field(primary_key=True, index=True)
-    participants_location: List[Dict[str, float]] = Field(sa_column=Column(JSON))  # [{"user_id": "u123", "lat": 39.9, "lng": 116.4}, ...]
-    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True)), default_factory=datetime.utcnow)
+    participants_location: List[Dict[str, float]] = Field(
+        sa_column=Column(JSON)
+    )  # [{"user_id": "u123", "lat": 39.9, "lng": 116.4}, ...]
+    updated_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True)), default_factory=datetime.utcnow
+    )

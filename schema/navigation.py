@@ -15,12 +15,27 @@ class LocationItem(BaseModel):
     category: str
     address: str
 
+
 class UserLocationRequest(BaseModel):
     user_id: str
+    activity_id: str
     location: dict  # {"lat": float, "lng": float}
-    timestamp: str
+
 
 class UserLocationResponse(BaseModel):
     user_id: str
+    activity_id: str
     status: str
     updated_at: str
+
+
+class UserLocationStopRequest(BaseModel):
+    user_id: str
+    activity_id: str
+    token: str
+
+
+class UserLocationStopResponse(BaseModel):
+    user_id: str
+    activity_id: str
+    stopped_at: str

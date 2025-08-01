@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from schema.database import Event, EventContent, EventRating, PartnerRating, EventReview
 
+
 # 数据库生命周期管理
 def init_database(app: FastAPI) -> None:
     """初始化数据库连接池并创建表结构"""
@@ -17,12 +18,12 @@ def init_database(app: FastAPI) -> None:
     db_path = Path(database_path).absolute()
     database_path = str(db_path)
     db_dir = db_path.parent
-    
+
     # 1. 验证目录
     try:
         db_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Database directory: {db_dir}")
-        
+
         # 测试目录可写性
         test_file = db_dir / "db_permission_test.tmp"
         test_file.touch()
@@ -31,21 +32,17 @@ def init_database(app: FastAPI) -> None:
         logger.critical(f"Directory error: {e}")
         logger.critical(f"请手动创建目录并设置权限: {db_dir}")
         sys.exit(1)
-    
+
     # 2. 创建数据库引擎
     sqlite_url = f"sqlite:///{db_path}"
-    
+
     # Windows 需要额外的连接参数
     connect_args = {}
     if sys.platform.startswith("win"):
         connect_args["check_same_thread"] = False
-    
-    engine = create_engine(
-        sqlite_url,
-        echo=False,
-        connect_args=connect_args
-    )
-    
+
+    engine = create_engine(sqlite_url, echo=False, connect_args=connect_args)
+
     # 3. 尝试创建数据库
     try:
         SQLModel.metadata.create_all(engine)
@@ -53,7 +50,7 @@ def init_database(app: FastAPI) -> None:
     except OperationalError as e:
         logger.critical(f"无法打开数据库文件: {db_path}")
         logger.critical(f"错误详情: {e}")
-        
+
         # 尝试创建空数据库文件
         try:
             logger.warning("尝试创建空数据库文件...")
@@ -64,51 +61,56 @@ def init_database(app: FastAPI) -> None:
             logger.critical(f"创建数据库文件失败: {e2}")
             logger.critical("请检查磁盘空间和文件权限")
             sys.exit(1)
-    
+
     # 存储引擎引用
     app.state.engine = engine
+
 
 async def shutdown_database(app: FastAPI) -> None:
     """
     关闭数据库连接
-    
+
     :param app: FastAPI应用实例
     """
     engine = app.state.engine
-    
+
     # 显式关闭连接池
     if engine:
         engine.dispose()
         logger.info("Database connection pool closed")
-    
+
     # 清理应用状态
     app.state.engine = None
 
+
 from fastapi import Request
+
 
 def get_session(request: Request) -> Session:
     """
     获取数据库会话（用于依赖注入）
-    
+
     :param request: FastAPI请求对象
     :return: SQLModel会话实例
     """
     engine = request.app.state.engine
     if not engine:
         raise RuntimeError("Database engine not initialized")
-    
+
     return Session(engine)
+
 
 # 在 __main__ 部分添加测试代码
 if __name__ == "__main__":
     from sqlmodel import select  # 关键修复
-    import asyncio 
+    import asyncio
     from fastapi import FastAPI, Request
-    from datetime import datetime, UTC, timedelta 
+    from datetime import datetime, UTC, timedelta
     import uuid
-    
+
     app = FastAPI()
     init_database(app)  # 初始化数据库
+
     async def main():
         # 创建模拟请求对象获取会话
         request = Request(scope={"type": "http", "app": app})
@@ -124,10 +126,10 @@ if __name__ == "__main__":
                 participants_id=["user_002", "user_003"],
                 status="active",
                 created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow()
+                updated_at=datetime.utcnow(),
             )
             session.add(event)
-            
+
             # 创建活动内容
             event_content = EventContent(
                 activity_id=activity_id,
@@ -140,10 +142,10 @@ if __name__ == "__main__":
                 budget=500,
                 group_size=15,
                 recommended_equipment=["登山杖", "防晒霜"],
-                activity_tags=["登山", "户外", "健身"]
+                activity_tags=["登山", "户外", "健身"],
             )
             session.add(event_content)
-            
+
             # 创建活动评分
             rating_id = str(uuid.uuid4())
             event_rating = EventRating(
@@ -152,14 +154,14 @@ if __name__ == "__main__":
                 submitted_at=datetime.utcnow(),
                 activity_id=activity_id,
                 rater_id="user_002",
-                comment="组织有序，体验很棒！"
+                comment="组织有序，体验很棒！",
             )
             session.add(event_rating)
-            
+
             # 更新主活动的评分信息
             event.rating = 4.8
             event.rating_id = [rating_id]
-            
+
             session.commit()
             logger.success("测试1：活动数据流插入成功")
         except Exception as e:
@@ -172,19 +174,19 @@ if __name__ == "__main__":
             db_event = session.get(Event, activity_id)
             assert db_event is not None, "主活动记录未找到"
             logger.info(f"查询到活动: {db_event.activity_id} 状态: {db_event.status}")
-            
+
             # 验证关联内容
             content = session.exec(
                 select(EventContent).where(EventContent.activity_id == activity_id)
             ).first()
             assert content.title == "周末登山活动", "活动标题不匹配"
             logger.info(f"活动内容: {content.title} 地点: {content.location}")
-            
+
             # 验证评分
             rating = session.get(EventRating, rating_id)
             assert rating.comment == "组织有序，体验很棒！", "评分内容不匹配"
             logger.info(f"活动评分: {rating.comment}")
-            
+
             logger.success("测试2：数据查询验证通过")
         except Exception as e:
             logger.error(f"测试2失败: {str(e)}")
@@ -197,7 +199,7 @@ if __name__ == "__main__":
                 submitted_at=datetime.utcnow(),
                 user_id="user_005",
                 tags=["守时", "友好"],
-                comment="非常可靠的登山伙伴"
+                comment="非常可靠的登山伙伴",
             )
             session.add(partner_rating)
             session.commit()
@@ -214,11 +216,11 @@ if __name__ == "__main__":
                     EventContent.recommended_equipment.contains(["登山杖"])
                 )
             ).all()
-            
+
             logger.info(f"找到 {len(results)} 个需要登山杖的活动")
             for r in results:
                 logger.info(f"活动: {r.title} 装备: {r.recommended_equipment}")
-            
+
             logger.success("测试4：JSON字段查询通过")
         except Exception as e:
             logger.error(f"测试4失败: {str(e)}")
@@ -228,7 +230,7 @@ if __name__ == "__main__":
             # 更新活动状态
             db_event.status = "completed"
             db_event.updated_at = datetime.utcnow()
-            
+
             # 添加活动回顾
             review = EventReview(
                 review_id=str(uuid.uuid4()),
@@ -236,7 +238,7 @@ if __name__ == "__main__":
                 submitted_at=datetime.utcnow(),
                 activity_id=activity_id,
                 reviewer_id="user_001",
-                comment="本次活动圆满成功，感谢大家参与！"
+                comment="本次活动圆满成功，感谢大家参与！",
             )
             session.add(review)
             session.commit()
@@ -247,5 +249,6 @@ if __name__ == "__main__":
 
         # 关闭数据库连接
         await shutdown_database(app)
+
     asyncio.run(main())
     logger.info("数据库生命周期管理模块已加载")

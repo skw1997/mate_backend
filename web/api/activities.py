@@ -2,13 +2,38 @@ from fastapi import APIRouter, HTTPException, Request
 from datetime import datetime, timezone, timedelta
 import uuid
 from database.lifetime import get_session, Event, EventContent
+
 router = APIRouter()
-from schema.activity import ActivityInputData, ActivityCreateRequest, GeneratedActivity, ActivityCreateResponse, ManualCreateRequest, ManualCreateResponse, ManualCreateRequirements, ActivityCardRequest, ActivityCardResponse, ActivityDetailRequest, ActivityDetailResponse, ActivityDetailRequirements, ActivityUpdateRequest, ActivityUpdateResponse, ActivityUpdateRequirements, ActivityFeedbackRequest, ActivityFeedbackResponse, FeedbackListResponse, FeedbackItem, ActivityHistoryItem, ActivityHistoryRequest, ActivityHistoryResponse
+from schema.activity import (
+    ActivityInputData,
+    ActivityCreateRequest,
+    GeneratedActivity,
+    ActivityCreateResponse,
+    ManualCreateRequest,
+    ManualCreateResponse,
+    ManualCreateRequirements,
+    ActivityCardRequest,
+    ActivityCardResponse,
+    ActivityDetailRequest,
+    ActivityDetailResponse,
+    ActivityDetailRequirements,
+    ActivityUpdateRequest,
+    ActivityUpdateResponse,
+    ActivityUpdateRequirements,
+    ActivityFeedbackRequest,
+    ActivityFeedbackResponse,
+    FeedbackListResponse,
+    FeedbackItem,
+    ActivityHistoryItem,
+    ActivityHistoryRequest,
+    ActivityHistoryResponse,
+)
 from schema.database import EventRating
 from typing import List
 from fastapi import Query
 from dateutil import parser
 import random
+
 
 @router.post("/api/activities/create", response_model=ActivityCreateResponse)
 async def create_activity(request: Request, body: ActivityCreateRequest):
@@ -37,7 +62,7 @@ async def create_activity(request: Request, body: ActivityCreateRequest):
             status="created",  # 初始状态
             updated_at=now,
             rating=None,
-            rating_id=[]
+            rating_id=[],
         )
         session.add(event)
         # 内容表
@@ -49,10 +74,10 @@ async def create_activity(request: Request, body: ActivityCreateRequest):
             duration=None,  # 可根据 input_data.duration 解析
             theme=input_data.theme,
             location=input_data.location,
-            budget=int(''.join(filter(str.isdigit, input_data.budget))),
+            budget=int("".join(filter(str.isdigit, input_data.budget))),
             group_size=1,
             recommended_equipment=recommended_equipment,
-            activity_tags=[input_data.theme]
+            activity_tags=[input_data.theme],
         )
         session.add(event_content)
         session.commit()
@@ -67,24 +92,21 @@ async def create_activity(request: Request, body: ActivityCreateRequest):
             title=title,
             description=description,
             start_time=start_time.strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
-            recommended_equipment=recommended_equipment
+            recommended_equipment=recommended_equipment,
         ),
         status="created",
-        created_at=now.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+        created_at=now.strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
     )
 
 
 @router.post("/api/activities/manual-create", response_model=ManualCreateResponse)
 async def manual_create_activity(request: Request, body: ManualCreateRequest):
 
-
     activity_id = f"a{uuid.uuid4()}"
     now = datetime.now()
     start_time = parser.parse(body.start_time)
 
-
-   #title = AI.genete_title(body.title, body.description, body.theme, body.location)
-
+    # title = AI.genete_title(body.title, body.description, body.theme, body.location)
 
     session = get_session(request)
     try:
@@ -97,7 +119,7 @@ async def manual_create_activity(request: Request, body: ManualCreateRequest):
             created_at=now,
             updated_at=now,
             rating=None,
-            rating_id=[]
+            rating_id=[],
         )
         session.add(event)
         # 内容表
@@ -112,7 +134,7 @@ async def manual_create_activity(request: Request, body: ManualCreateRequest):
             budget=body.budget,
             group_size=body.requirements.group_size,
             recommended_equipment=[],
-            activity_tags=body.requirements.activity_tags
+            activity_tags=body.requirements.activity_tags,
         )
         session.add(event_content)
         session.commit()
@@ -123,46 +145,67 @@ async def manual_create_activity(request: Request, body: ManualCreateRequest):
     return ManualCreateResponse(
         activity_id=activity_id,
         status="created",
-        created_at=now.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+        created_at=now.strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
     )
 
 
-@router.post("/api/activities/{activity_id}/generate-card", response_model=ActivityCardResponse)
+@router.post(
+    "/api/activities/{activity_id}/generate-card", response_model=ActivityCardResponse
+)
 async def generate_activity_card(
-    activity_id: str,
-    body: ActivityCardRequest,
-    request: Request
+    activity_id: str, body: ActivityCardRequest, request: Request
 ):
     session = get_session(request)
-    event_content = session.query(EventContent).filter_by(activity_id=activity_id).first()
+    event_content = (
+        session.query(EventContent).filter_by(activity_id=activity_id).first()
+    )
     if not event_content:
         raise HTTPException(status_code=404, detail="活动不存在")
     return ActivityCardResponse(
         activity_id=activity_id,
         title=event_content.title,
         location=event_content.location,
-        start_time=event_content.start_time.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+        start_time=event_content.start_time.strftime("%Y-%m-%dT%H:%M:%S.%f%z"),
     )
 
-@router.get("/api/activities/{activity_id}/details", response_model=ActivityDetailResponse)
+
+@router.get(
+    "/api/activities/{activity_id}/details", response_model=ActivityDetailResponse
+)
 async def get_activity_detail(
     activity_id: str,
     user_id: str = Query(...),
     token: str = Query(...),
-    request: Request = None
-):  
-    print(f"Fetching details for activity_id: {activity_id}, user_id: {user_id}, token: {token}")
+    request: Request = None,
+):
+    print(
+        f"Fetching details for activity_id: {activity_id}, user_id: {user_id}, token: {token}"
+    )
     session = get_session(request)
     event = session.query(Event).filter_by(activity_id=activity_id).first()
-    event_content = session.query(EventContent).filter_by(activity_id=activity_id).first()
+    event_content = (
+        session.query(EventContent).filter_by(activity_id=activity_id).first()
+    )
     if not event or not event_content:
         raise HTTPException(status_code=404, detail="活动不存在")
 
     # 组装 requirements
     requirements = ActivityDetailRequirements(
-        group_size=str(event_content.group_size) if hasattr(event_content, "group_size") else "",
-        activity_tags=event_content.activity_tags if hasattr(event_content, "activity_tags") else [],
-        recommended_equipment=event_content.recommended_equipment if hasattr(event_content, "recommended_equipment") else []
+        group_size=(
+            str(event_content.group_size)
+            if hasattr(event_content, "group_size")
+            else ""
+        ),
+        activity_tags=(
+            event_content.activity_tags
+            if hasattr(event_content, "activity_tags")
+            else []
+        ),
+        recommended_equipment=(
+            event_content.recommended_equipment
+            if hasattr(event_content, "recommended_equipment")
+            else []
+        ),
     )
 
     return ActivityDetailResponse(
@@ -172,24 +215,35 @@ async def get_activity_detail(
         theme=event_content.theme,
         location=event_content.location,
         budget=f"{event_content.budget}元",
-        start_time=event_content.start_time.strftime("%Y-%m-%dT%H:%M:%SZ") if event_content.start_time else "",
+        start_time=(
+            event_content.start_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+            if event_content.start_time
+            else ""
+        ),
         duration=str(event_content.duration) if event_content.duration else "",
         status=event.status,
         requirements=requirements,
         participants=event.participants_id if hasattr(event, "participants_id") else [],
-        created_at=event.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if event.created_at else "",
-        last_updated=event.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ") if event.updated_at else ""
+        created_at=(
+            event.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if event.created_at else ""
+        ),
+        last_updated=(
+            event.updated_at.strftime("%Y-%m-%dT%H:%M:%SZ") if event.updated_at else ""
+        ),
     )
 
-@router.put("/api/activities/{activity_id}/update", response_model=ActivityUpdateResponse)
+
+@router.put(
+    "/api/activities/{activity_id}/update", response_model=ActivityUpdateResponse
+)
 async def update_activity(
-    activity_id: str,
-    body: ActivityUpdateRequest,
-    request: Request
+    activity_id: str, body: ActivityUpdateRequest, request: Request
 ):
     session = get_session(request)
     event = session.query(Event).filter_by(activity_id=activity_id).first()
-    event_content = session.query(EventContent).filter_by(activity_id=activity_id).first()
+    event_content = (
+        session.query(EventContent).filter_by(activity_id=activity_id).first()
+    )
     if not event or not event_content:
         raise HTTPException(status_code=404, detail="活动不存在")
 
@@ -217,8 +271,8 @@ async def update_activity(
         if body.status:
             if body.status not in ["created", "pending"]:
                 raise HTTPException(status_code=400, detail="无效的状态")
-            event.status = body.status # 更新状态
-                
+            event.status = body.status  # 更新状态
+
         # 更新时间
         now = datetime.now()
         event.updated_at = now
@@ -232,14 +286,19 @@ async def update_activity(
     return ActivityUpdateResponse(
         activity_id=activity_id,
         feedback=feedback,
-        updated_at=event.updated_at.strftime("%Y-%m-%dT%H:%M:%S.%f%z") if event.updated_at else ""
+        updated_at=(
+            event.updated_at.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+            if event.updated_at
+            else ""
+        ),
     )
 
-@router.post("/api/activities/{activity_id}/feedback", response_model=ActivityFeedbackResponse)
+
+@router.post(
+    "/api/activities/{activity_id}/feedback", response_model=ActivityFeedbackResponse
+)
 async def submit_activity_feedback(
-    activity_id: str,
-    body: ActivityFeedbackRequest,
-    request: Request
+    activity_id: str, body: ActivityFeedbackRequest, request: Request
 ):
     from datetime import datetime
     import random
@@ -249,9 +308,15 @@ async def submit_activity_feedback(
     if not event:
         raise HTTPException(status_code=404, detail="活动不存在")
 
-    existing_rating = session.query(EventRating).filter_by(activity_id=activity_id, rater_id=body.user_id).first()
+    existing_rating = (
+        session.query(EventRating)
+        .filter_by(activity_id=activity_id, rater_id=body.user_id)
+        .first()
+    )
     if existing_rating:
-        raise HTTPException(status_code=400, detail="同一个用户不能对同一个活动重复评论")
+        raise HTTPException(
+            status_code=400, detail="同一个用户不能对同一个活动重复评论"
+        )
 
     # 生成唯一 rating_id
     rating_id = f"f{random.getrandbits(16):04x}"
@@ -266,14 +331,18 @@ async def submit_activity_feedback(
         activity_id=activity_id,
         rating=body.rating,
         rater_id=body.user_id,
-        comment=body.comment
+        comment=body.comment,
     )
     session.add(event_rating)
 
     # 更新活动评分（可选：简单平均或覆盖）
     all_ratings = session.query(EventRating).filter_by(activity_id=activity_id).all()
     if all_ratings:
-        avg_rating = sum(r.rating for r in all_ratings if hasattr(r, "rating") and r.rating is not None) / len(all_ratings)
+        avg_rating = sum(
+            r.rating
+            for r in all_ratings
+            if hasattr(r, "rating") and r.rating is not None
+        ) / len(all_ratings)
         event.rating = avg_rating
     else:
         event.rating = body.rating
@@ -283,16 +352,18 @@ async def submit_activity_feedback(
         activity_id=activity_id,
         rating_id=rating_id,
         status="submitted",
-        submitted_at=now.strftime("%Y-%m-%dT%H:%M:%SZ")
+        submitted_at=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
 
 
-@router.get("/api/activities/{activity_id}/feedback_list", response_model=FeedbackListResponse)
+@router.get(
+    "/api/activities/{activity_id}/feedback_list", response_model=FeedbackListResponse
+)
 async def get_activity_feedback_list(
     activity_id: str,
     user_id: str = Query(...),
     token: str = Query(...),
-    request: Request = None
+    request: Request = None,
 ):
     session = get_session(request)
     feedbacks = session.query(EventRating).filter_by(activity_id=activity_id).all()
@@ -301,21 +372,18 @@ async def get_activity_feedback_list(
             feedback_id=f.rating_id,
             rating=f.rating,
             comment=f.comment,
-            submitted_at=f.submitted_at.strftime("%Y-%m-%dT%H:%M:%SZ") if f.submitted_at else ""
+            submitted_at=(
+                f.submitted_at.strftime("%Y-%m-%dT%H:%M:%SZ") if f.submitted_at else ""
+            ),
         )
         for f in feedbacks
     ]
-    return FeedbackListResponse(
-        activity_id=activity_id,
-        feedbacks=feedback_items
-    )
+    return FeedbackListResponse(activity_id=activity_id, feedbacks=feedback_items)
 
 
 @router.get("/api/activities/history", response_model=ActivityHistoryResponse)
 async def get_user_activity_history(
-    user_id: str = Query(...),
-    token: str = Query(...),
-    request: Request = None
+    user_id: str = Query(...), token: str = Query(...), request: Request = None
 ):
     session = get_session(request)
 
@@ -323,35 +391,43 @@ async def get_user_activity_history(
     valid_status = ["created", "pending", "approved", "finished"]
 
     # 查询用户创建的活动
-    created_events = session.query(Event).filter(
-        Event.owner_id == user_id,
-        Event.status.in_(valid_status)
-    ).all()
+    created_events = (
+        session.query(Event)
+        .filter(Event.owner_id == user_id, Event.status.in_(valid_status))
+        .all()
+    )
     created_history = [
         ActivityHistoryItem(
             activity_id=e.activity_id,
             status="created",
-            timestamp=e.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if e.created_at else ""
+            timestamp=(
+                e.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if e.created_at else ""
+            ),
         )
         for e in created_events
     ]
 
     # 查询用户参与的活动（不包括自己创建的）
-    joined_events = session.query(Event).filter(
-        Event.participants_id.contains([user_id]),
-        Event.owner_id != user_id,
-        Event.status.in_(valid_status)
-    ).all()
+    joined_events = (
+        session.query(Event)
+        .filter(
+            Event.participants_id.contains([user_id]),
+            Event.owner_id != user_id,
+            Event.status.in_(valid_status),
+        )
+        .all()
+    )
     joined_history = [
         ActivityHistoryItem(
             activity_id=e.activity_id,
             status="joined",
-            timestamp=e.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if e.created_at else ""
+            timestamp=(
+                e.created_at.strftime("%Y-%m-%dT%H:%M:%SZ") if e.created_at else ""
+            ),
         )
         for e in joined_events
     ]
 
     return ActivityHistoryResponse(
-        user_id=user_id,
-        history=created_history + joined_history
+        user_id=user_id, history=created_history + joined_history
     )
